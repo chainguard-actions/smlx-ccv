@@ -1,15 +1,44 @@
-# smlx/ccv
+# Conventional Commits Versioner
 
-Automatically tag a new version based on the commit messages of commits since the last tag.
+[![Release](https://github.com/smlx/ccv/actions/workflows/release.yaml/badge.svg)](https://github.com/smlx/ccv/actions/workflows/release.yaml)
+[![coverage](https://raw.githubusercontent.com/smlx/ccv/badges/.badges/main/coverage.svg)](https://github.com/smlx/ccv/actions/workflows/coverage.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/smlx/ccv)](https://goreportcard.com/report/github.com/smlx/ccv)
 
-Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/smlx/ccv](https://github.com/smlx/ccv).
+`ccv` does one thing: it walks git commit history back from the current `HEAD` to find the most recent tag, taking note of commit messages along the way.
+When it reaches the most recent tag, it uses the commit messages it saw to figure out how the tag should be incremented, and prints the incremented tag.
 
-## Versions
+`ccv` is intended for use in continuous delivery automation.
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v0.10.0 | [`v0.10.0`](https://github.com/chainguard-actions/smlx-ccv/tree/v0.10.0) | [`7318e2f`](https://github.com/smlx/ccv/commit/7318e2f25a52dcd550e75384b84983973251a1f8) |
-| v0.8.1 | [`v0.8.1`](https://github.com/chainguard-actions/smlx-ccv/tree/v0.8.1) | [`73cf78a`](https://github.com/smlx/ccv/commit/73cf78a59d45ce2630fe82a05105a853ebc82803) |
+The ideas behind `ccv` are described by [Conventional Commits](https://www.conventionalcommits.org/) and [Semantic Versioning](https://semver.org/). Currently parts 1 to 3 of the Conventional Commits specification summary are recognized when incrementing versions.
+
+## Get it
+
+Download the latest [release](https://github.com/smlx/ccv/releases) on github, or:
+
+```
+go install github.com/smlx/ccv/cmd/ccv@latest
+```
+
+## Use it
+
+For a full example, see the [`tag-release` workflow](https://github.com/smlx/ccv/blob/main/.github/workflows/tag-release.yaml) in this repository.
+
+Simple example:
+
+```
+# add an incremented tag if necessary
+if [ -z $(git tag -l $(ccv)) ]; then
+	git tag $(ccv)
+fi
+```
+
+`ccv` takes no arguments or options\*.
+
+\* Yet!
+
+## Prior art
+
+* [caarlos0/svu](https://github.com/caarlos0/svu) does pretty much the same thing, but it has more features and shells out to git. `ccv` uses [go-git/go-git](https://github.com/go-git/go-git) instead.
 
 ## Privacy
 
