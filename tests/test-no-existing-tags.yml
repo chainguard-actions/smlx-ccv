@@ -1,0 +1,51 @@
+name: Test first version when no tags exist
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Remove all existing tags and set up reachable origin
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Remove all existing tags so ccv sees a fresh repo
+          git tag -l | xargs -r git tag -d
+          # Create a bare repo under GITHUB_WORKSPACE so it's reachable inside the Docker container
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          # No tags to push
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected new-tag=true but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is v0.1.0
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: $ACTUAL"
+          if [ "$ACTUAL" != "v0.1.0" ]; then
+            echo "FAIL: expected new-tag-version=v0.1.0 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

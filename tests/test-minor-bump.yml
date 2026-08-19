@@ -1,0 +1,51 @@
+name: Test CCV - Minor bump from feat commit
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git identity
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Set up repo with a tag and a feat commit
+        run: |
+          # Remove all existing tags
+          git tag -d $(git tag -l) 2>/dev/null || true
+          # Tag the current HEAD as v0.1.0
+          git tag v0.1.0
+          # Create a feat commit after the tag
+          echo "minor-change" > minor-file.txt
+          git add minor-file.txt
+          git commit -m "feat: add a new feature"
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected new-tag='true', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is v0.2.0
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: $ACTUAL"
+          if [ "$ACTUAL" != "v0.2.0" ]; then
+            echo "FAIL: expected new-tag-version='v0.2.0', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

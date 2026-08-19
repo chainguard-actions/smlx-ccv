@@ -1,0 +1,66 @@
+name: Test write-tag=false does not push tag
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git history with a feat commit after a tag
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Tag an earlier commit as v2.0.0
+          git tag v2.0.0
+          # Make a new feat commit after the tag
+          echo "feature change" >> /tmp/feat-file.txt
+          cp /tmp/feat-file.txt "$GITHUB_WORKSPACE/feat-file.txt"
+          git add "$GITHUB_WORKSPACE/feat-file.txt"
+          git commit -m "feat: add a new feature"
+          # Create a bare repo under GITHUB_WORKSPACE so it's reachable inside the Docker container
+          # (even though write-tag=false, the entrypoint still needs a valid git remote context)
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected new-tag=true but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is v2.1.0
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: $ACTUAL"
+          if [ "$ACTUAL" != "v2.1.0" ]; then
+            echo "FAIL: expected new-tag-version=v2.1.0 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert tag was NOT pushed to remote
+        run: |
+          # Since write-tag=false, the tag v2.1.0 should NOT exist in the bare remote
+          if git ls-remote "$GITHUB_WORKSPACE/.git-remote" refs/tags/v2.1.0 | grep -q v2.1.0; then
+            echo "FAIL: tag v2.1.0 was pushed to remote but write-tag=false"
+            exit 1
+          fi
+          echo "PASS: tag was not pushed to remote"

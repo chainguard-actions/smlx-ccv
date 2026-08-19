@@ -1,0 +1,69 @@
+name: release
+on:
+  push:
+    branches:
+    - main
+permissions: {}
+jobs:
+  release-tag:
+    permissions:
+      # create tag
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      new-tag: ${{ steps.ccv.outputs.new-tag }}
+    steps:
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      with:
+        fetch-depth: 0
+    - name: Bump tag if necessary
+      id: ccv
+      uses: smlx/ccv@73cf78a59d45ce2630fe82a05105a853ebc82803 # v0.8.1
+  release-build:
+    permissions:
+      # create release
+      contents: write
+      # push docker images to regsitry
+      packages: write
+      # use OIDC token for signing
+      id-token: write
+      # required by attest-build-provenance
+      attestations: write
+    needs: release-tag
+    if: needs.release-tag.outputs.new-tag == 'true'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      with:
+        go-version: stable
+    - name: Login to GHCR
+      uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Set up environment
+      run: echo "GOVERSION=$(go version)" >> "$GITHUB_ENV"
+    - uses: advanced-security/sbom-generator-action@375dee8e6144d9fd0ec1f5667b4f6fb4faacefed # v0.0.1
+      id: sbom
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Move sbom to avoid dirty git
+      run: mv "$GITHUB_SBOM_PATH" ./sbom.spdx.json
+      env:
+        GITHUB_SBOM_PATH: ${{ steps.sbom.outputs.fileName }}
+    - uses: goreleaser/goreleaser-action@5742e2a039330cbb23ebf35f046f814d4c6ff811 # v5.1.0
+      id: goreleaser
+      with:
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_SBOM_PATH: ./sbom.spdx.json
+    # attest archives
+    - uses: actions/attest-build-provenance@173725a1209d09b31f9d30a3890cf2757ebbff0d # v1.1.2
+      with:
+        subject-path: "dist/*.tar.gz"

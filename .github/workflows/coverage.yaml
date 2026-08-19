@@ -1,0 +1,32 @@
+name: coverage
+on:
+  push:
+    branches:
+    - main
+permissions: {}
+jobs:
+  coverage:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      with:
+        go-version: stable
+    - run: |
+        git config --global user.email "test@example.com"
+        git config --global user.name "Test"
+    - name: Calculate coverage
+      run: |
+        go test -v -covermode=atomic -coverprofile=cover.out.raw -coverpkg=./... ./...
+        # remove generated code from coverage calculation
+        grep -Ev 'internal/mock|_enumer.go' cover.out.raw > cover.out
+    - name: Generage coverage badge
+      uses: vladopajic/go-test-coverage@1079cd4e58dda229c04ffdb6324fc3756b8542ff # v2.10.1
+      with:
+        profile: cover.out
+        local-prefix: github.com/${{ github.repository }}
+        git-token: ${{ secrets.GITHUB_TOKEN }}
+        # orphan branch for storing badges
+        git-branch: badges

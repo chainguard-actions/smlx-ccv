@@ -1,0 +1,48 @@
+name: Test CCV - Already tagged at HEAD
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git identity
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Remove any existing tags and create a tag at HEAD matching ccv output
+        run: |
+          # Remove all existing tags first
+          git tag -d $(git tag -l) 2>/dev/null || true
+          # With no prior tags, ccv would compute v0.1.0.
+          # Tag HEAD with v0.1.0 so ccv sees it already exists.
+          git tag v0.1.0
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected new-tag='false', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is empty
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected new-tag-version to be empty, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
