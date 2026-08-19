@@ -1,0 +1,48 @@
+name: Test already tagged commit (no new tag needed)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      # Set up workspace where HEAD is already tagged
+      - name: Set up workspace with HEAD already tagged
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+          # Delete all local tags
+          git tag -l | xargs -r git tag -d
+          # Add a commit and tag it (HEAD will be tagged)
+          git commit --allow-empty -m "chore: setup commit"
+          git tag v0.1.0
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected new-tag=false but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is empty
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected new-tag-version to be empty but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

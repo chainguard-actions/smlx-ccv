@@ -1,0 +1,60 @@
+name: Test major version bump from breaking change commit
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      # Set up workspace with a tag and a breaking change commit after it
+      - name: Set up workspace with breaking change commit after tag
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+          # Delete all local tags
+          git tag -l | xargs -r git tag -d
+          # Add a commit, tag it, then add a breaking change commit
+          git commit --allow-empty -m "feat: initial feature"
+          git tag v2.3.4
+          git commit --allow-empty -m "feat!: breaking API change"
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected new-tag=true but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is v3.0.0
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: $ACTUAL"
+          if [ "$ACTUAL" != "v3.0.0" ]; then
+            echo "FAIL: expected new-tag-version=v3.0.0 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version-type is major
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version-type }}
+        run: |
+          echo "actual new-tag-version-type: $ACTUAL"
+          if [ "$ACTUAL" != "major" ]; then
+            echo "FAIL: expected new-tag-version-type=major but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

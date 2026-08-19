@@ -1,0 +1,44 @@
+name: build
+on:
+  pull_request:
+    branches:
+    - main
+permissions: {}
+jobs:
+  build-snapshot:
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+      with:
+        go-version: stable
+    - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
+      id: goreleaser
+      with:
+        version: latest
+        args: build --clean --verbose --single-target --snapshot
+  check-tag:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        fetch-depth: 0
+    - id: ccv
+      uses: smlx/ccv@f1246290d5eba91141b7a3ae9820051449292314 # v0.9.0-23-gf124629
+      with:
+        write-tag: false
+    - run: |
+        echo "new-tag=$NEW_TAG"
+        echo "new-tag-version=$NEW_TAG_VERSION"
+        echo "new-tag-version-type=$NEW_TAG_VERSION_TYPE"
+      env:
+        NEW_TAG: ${{steps.ccv.outputs.new-tag}}
+        NEW_TAG_VERSION: ${{steps.ccv.outputs.new-tag-version}}
+        NEW_TAG_VERSION_TYPE: ${{steps.ccv.outputs.new-tag-version-type}}

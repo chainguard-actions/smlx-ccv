@@ -1,0 +1,60 @@
+name: Test patch version bump from fix commit
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      # Set up workspace with a tag and a fix commit after it
+      - name: Set up workspace with fix commit after tag
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+          # Delete all local tags
+          git tag -l | xargs -r git tag -d
+          # Add a commit, tag it, then add a fix commit
+          git commit --allow-empty -m "feat: initial commit"
+          git tag v1.0.0
+          git commit --allow-empty -m "fix: correct a bug"
+
+      - id: action
+        uses: .
+        with:
+          write-tag: 'false'
+
+      - name: Assert new-tag is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag }}
+        run: |
+          echo "actual new-tag: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected new-tag=true but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version is v1.0.1
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version }}
+        run: |
+          echo "actual new-tag-version: $ACTUAL"
+          if [ "$ACTUAL" != "v1.0.1" ]; then
+            echo "FAIL: expected new-tag-version=v1.0.1 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert new-tag-version-type is patch
+        env:
+          ACTUAL: ${{ steps.action.outputs.new-tag-version-type }}
+        run: |
+          echo "actual new-tag-version-type: $ACTUAL"
+          if [ "$ACTUAL" != "patch" ]; then
+            echo "FAIL: expected new-tag-version-type=patch but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
